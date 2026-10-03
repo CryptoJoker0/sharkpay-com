@@ -40,6 +40,36 @@ export default function Page() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [connectedWallet, setConnectedWallet] = useState<{ chain: string; address: string } | null>(null)
+  const [walletError, setWalletError] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState<string | null>(null)
+
+  const connectWallet = async (chain: 'ETH' | 'SOL' | 'TRX' | 'BTC') => {
+    setConnecting(chain)
+    setWalletError(null)
+    try {
+      let address = ''
+      const browser = window as Window & { ethereum?: { request: (args: { method: string }) => Promise<string[]> }; solana?: { connect: () => Promise<{ publicKey: { toString: () => string } }> }; tronLink?: { request: (args: { method: string }) => Promise<string[]> }; unisat?: { requestAccounts: () => Promise<string[]> } }
+      if (chain === 'ETH') {
+        if (!browser.ethereum) throw new Error('Install MetaMask or another Ethereum wallet to continue.')
+        address = (await browser.ethereum.request({ method: 'eth_requestAccounts' }))[0]
+      } else if (chain === 'SOL') {
+        if (!browser.solana) throw new Error('Install Phantom or another Solana wallet to continue.')
+        address = (await browser.solana.connect()).publicKey.toString()
+      } else if (chain === 'TRX') {
+        if (!browser.tronLink) throw new Error('Install TronLink to continue.')
+        address = (await browser.tronLink.request({ method: 'tron_requestAccounts' }))[0]
+      } else {
+        if (!browser.unisat) throw new Error('Install UniSat or another Bitcoin wallet to continue.')
+        address = (await browser.unisat.requestAccounts())[0]
+      }
+      setConnectedWallet({ chain, address })
+    } catch (error) {
+      setWalletError(error instanceof Error ? error.message : 'Wallet connection was cancelled.')
+    } finally {
+      setConnecting(null)
+    }
+  }
 
   const copyAddress = async () => {
     await navigator.clipboard?.writeText('0x2e7a...9F31')
@@ -63,7 +93,7 @@ export default function Page() {
           </nav>
           <div className="hidden items-center gap-3 md:flex">
             <button className="rounded-full px-4 py-2 text-sm text-slate-300 transition hover:text-white">Sign in</button>
-            <a href="#plans" className="rounded-full bg-[#f4b82e] px-5 py-2.5 text-sm font-semibold text-[#071126] shadow-[0_0_24px_rgba(244,184,46,.18)] transition hover:bg-[#ffd369]">Start investing <ArrowUpRight className="ml-1 inline size-4" /></a>
+            <button onClick={() => setSelectedPlan('Growth')} className="rounded-full bg-[#f4b82e] px-5 py-2.5 text-sm font-semibold text-[#071126] shadow-[0_0_24px_rgba(244,184,46,.18)] transition hover:bg-[#ffd369]">Connect wallet <Wallet className="ml-1 inline size-4" /></button>
           </div>
           <button className="rounded-lg p-2 text-slate-200 md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">{menuOpen ? <X /> : <Menu />}</button>
         </div>
@@ -89,7 +119,7 @@ export default function Page() {
 
       <footer className="relative z-10 border-t border-white/[.07] px-5 py-8 lg:px-8"><div className="mx-auto flex max-w-7xl flex-col gap-5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between"><p>© 2026 SharkPay. Digital asset services for informed investors.</p><div className="flex gap-5"><a href="#top" className="hover:text-white">Risk disclosure</a><a href="#top" className="hover:text-white">Terms</a><a href="#top" className="hover:text-white">Privacy</a></div></div></footer>
 
-      {selectedPlan && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020611]/80 p-5 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="invest-title"><div className="w-full max-w-md rounded-3xl border border-[#f4b82e]/25 bg-[#0b1933] p-6 shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-xs uppercase tracking-[.2em] text-[#f4b82e]">Start your journey</p><h2 id="invest-title" className="mt-2 text-2xl font-semibold text-white">{selectedPlan} strategy</h2></div><button onClick={() => setSelectedPlan(null)} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Close dialog"><X className="size-5" /></button></div><p className="mt-5 text-sm leading-6 text-slate-400">Connect your wallet or sign in to review strategy details before making a deposit. Never send funds until you have verified the network and destination.</p><div className="mt-6 rounded-2xl border border-white/10 bg-[#071126] p-4"><p className="text-xs text-slate-500">Demo deposit address</p><div className="mt-2 flex items-center justify-between gap-3"><code className="text-sm text-[#fbd77a]">0x2e7a...9F31</code><button onClick={copyAddress} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Copy address">{copied ? <Check className="size-4 text-emerald-300" /> : <Copy className="size-4" />}</button></div></div><button onClick={() => setSelectedPlan(null)} className="mt-6 w-full rounded-full bg-[#f4b82e] py-3 font-semibold text-[#071126] hover:bg-[#ffd369]">Continue securely</button><p className="mt-4 text-center text-[11px] text-slate-500">Illustrative interface only. Investment values can go down as well as up.</p></div></div>}
+      {selectedPlan && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020611]/80 p-5 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="invest-title"><div className="w-full max-w-md rounded-3xl border border-[#f4b82e]/25 bg-[#0b1933] p-6 shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-xs uppercase tracking-[.2em] text-[#f4b82e]">Start your journey</p><h2 id="invest-title" className="mt-2 text-2xl font-semibold text-white">{selectedPlan} strategy</h2></div><button onClick={() => setSelectedPlan(null)} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Close dialog"><X className="size-5" /></button></div><p className="mt-5 text-sm leading-6 text-slate-400">Connect a compatible wallet before investing. SharkPay supports Ethereum, Solana, TRON, and Bitcoin wallets.</p><div className="mt-6 grid grid-cols-2 gap-3"><button onClick={() => connectWallet('ETH')} disabled={!!connecting} className="rounded-2xl border border-white/10 bg-[#071126] px-4 py-3 text-left transition hover:border-[#f4b82e]/50 disabled:opacity-60"><span className="text-sm font-semibold text-white">Ethereum</span><span className="mt-1 block text-xs text-slate-500">MetaMask / WalletConnect</span></button><button onClick={() => connectWallet('SOL')} disabled={!!connecting} className="rounded-2xl border border-white/10 bg-[#071126] px-4 py-3 text-left transition hover:border-[#f4b82e]/50 disabled:opacity-60"><span className="text-sm font-semibold text-white">Solana</span><span className="mt-1 block text-xs text-slate-500">Phantom wallet</span></button><button onClick={() => connectWallet('TRX')} disabled={!!connecting} className="rounded-2xl border border-white/10 bg-[#071126] px-4 py-3 text-left transition hover:border-[#f4b82e]/50 disabled:opacity-60"><span className="text-sm font-semibold text-white">TRON</span><span className="mt-1 block text-xs text-slate-500">TronLink</span></button><button onClick={() => connectWallet('BTC')} disabled={!!connecting} className="rounded-2xl border border-white/10 bg-[#071126] px-4 py-3 text-left transition hover:border-[#f4b82e]/50 disabled:opacity-60"><span className="text-sm font-semibold text-white">Bitcoin</span><span className="mt-1 block text-xs text-slate-500">UniSat wallet</span></button></div>{walletError && <p role="alert" className="mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-200">{walletError}</p>}{connectedWallet && <p className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs leading-5 text-emerald-200">{connectedWallet.chain} wallet connected: {connectedWallet.address.slice(0, 8)}…{connectedWallet.address.slice(-6)}</p>}<div className="mt-6 rounded-2xl border border-white/10 bg-[#071126] p-4"><p className="text-xs text-slate-500">Demo deposit address</p><div className="mt-2 flex items-center justify-between gap-3"><code className="text-sm text-[#fbd77a]">0x2e7a...9F31</code><button onClick={copyAddress} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Copy address">{copied ? <Check className="size-4 text-emerald-300" /> : <Copy className="size-4" />}</button></div></div><button onClick={() => connectedWallet ? setSelectedPlan(null) : setWalletError('Connect a wallet above before continuing securely.')} className="mt-6 w-full rounded-full bg-[#f4b82e] py-3 font-semibold text-[#071126] hover:bg-[#ffd369]">{connectedWallet ? 'Continue securely' : 'Connect wallet to continue'}</button><p className="mt-4 text-center text-[11px] text-slate-500">Illustrative interface only. Investment values can go down as well as up.</p></div></div>}
     </main>
   )
 }
