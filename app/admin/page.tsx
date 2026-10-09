@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Users, Wallet, Shield, Settings, LogOut, Menu, X, Download, Search, CheckCircle, Clock, AlertCircle, DollarSign } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 interface Investment {
   id: string
@@ -35,34 +36,26 @@ interface SharkApplication {
   submittedDate: string
 }
 
-const mockInvestments: Investment[] = [
-  { id: '1', investor: 'John Doe', email: 'john@example.com', plan: 'Diamond', amount: 45000, chain: 'Ethereum', wallet: '0x742d...3D5F', txHash: '0xabc123', status: 'confirmed', date: '2025-01-15' },
-  { id: '2', investor: 'Jane Smith', email: 'jane@example.com', plan: 'Silver', amount: 5000, chain: 'BSC', wallet: '0x8c47...2e1B', txHash: '0xdef456', status: 'confirmed', date: '2025-01-14' },
-  { id: '3', investor: 'Bob Wilson', email: 'bob@example.com', plan: 'Gold', amount: 500, chain: 'Solana', wallet: 'AVmgi...yZi', txHash: 'sig123', status: 'pending', date: '2025-01-13' },
-]
-
-const mockUsers: User[] = [
-  { id: '1', email: 'john@example.com', joinDate: '2025-01-10', status: 'verified', totalInvested: 45000 },
-  { id: '2', email: 'jane@example.com', joinDate: '2025-01-05', status: 'active', totalInvested: 5000 },
-  { id: '3', email: 'bob@example.com', joinDate: '2025-01-12', status: 'active', totalInvested: 500 },
-]
-
-const mockSharkApps: SharkApplication[] = [
-  { id: '1', name: 'Michael Chen', email: 'michael@example.com', phone: '+1234567890', country: 'USA', investmentAmount: 250000, status: 'pending', submittedDate: '2025-01-14' },
-  { id: '2', name: 'Sarah Johnson', email: 'sarah@example.com', phone: '+1987654321', country: 'UK', investmentAmount: 500000, status: 'approved', submittedDate: '2025-01-10' },
-]
-
 export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'investments' | 'users' | 'shark' | 'settings'>('overview')
   const [mobileMenu, setMobileMenu] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [investments, setInvestments] = useState(mockInvestments)
-  const [users, setUsers] = useState(mockUsers)
-  const [sharkApps, setSharkApps] = useState(mockSharkApps)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [investments, setInvestments] = useState<Investment[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [sharkApps, setSharkApps] = useState<SharkApplication[]>([])
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    setAuthError('')
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error || !data.user) { setAuthError('Invalid admin credentials.'); return }
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).maybeSingle()
+    if (profile?.role !== 'admin') { await supabase.auth.signOut(); setAuthError('This account is not authorized for administration.'); return }
     setAuthenticated(true)
   }
 
@@ -75,12 +68,15 @@ export default function AdminPage() {
           </div>
           <h1 className="text-2xl font-bold text-center mb-2">Admin Portal</h1>
           <p className="text-center text-slate-400 text-sm mb-6">SHARKYPAY Management Dashboard</p>
-          <div className="mb-6 rounded-xl border border-amber-300/20 bg-amber-300/[.06] p-4 text-sm leading-6 text-amber-100/80">
-            Preview interface only. Production access must be protected by server-side authentication and role-based authorization before deployment.
+          <div className="mb-6 rounded-xl border border-[#64f6a5]/20 bg-[#64f6a5]/[.06] p-4 text-sm leading-6 text-slate-300">
+            Administration is restricted to accounts with the <strong className="text-[#64f6a5]">admin</strong> role in Supabase.
           </div>
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleLogin} className="flex flex-col gap-3">
+            <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Admin email" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3" />
+            <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3" />
+            {authError && <p className="text-sm text-red-300">{authError}</p>}
             <button type="submit" className="w-full rounded-full bg-[#64f6a5] px-5 py-3 font-bold text-[#03151a] hover:bg-[#4dd97a]">
-              Open Admin Preview
+              Sign in securely
             </button>
           </form>
         </div>
@@ -165,7 +161,7 @@ export default function AdminPage() {
                 <p className="text-sm text-slate-400">{String(label)}</p>
                 <b className="block text-3xl mt-2">{String(value)}</b>
               </div>
-              <div style={{ color }} className="opacity-60">
+              <div style={{ color: String(color) }} className="opacity-60">
                 {/* @ts-ignore */}
                 <Icon size={28} />
               </div>
