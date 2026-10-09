@@ -1,15 +1,16 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-
-const supabase = createClient()
 
 type Profile = { full_name: string | null; phone: string | null; country: string | null }
 type Investment = { id: string; amount: number; chain: string; status: string; created_at: string; investment_plans: { name: string } | null }
 type Transaction = { id: string; type: string; amount: number; asset: string; status: string; created_at: string }
 
 export default function DashboardPage() {
+  const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null)
   const [profile, setProfile] = useState<Profile>({ full_name: '', phone: '', country: '' })
   const [investments, setInvestments] = useState<Investment[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -19,7 +20,10 @@ export default function DashboardPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
+  useEffect(() => { setSupabase(createClient()) }, [])
+
   useEffect(() => {
+    if (!supabase) return
     const loadAccount = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -40,13 +44,14 @@ export default function DashboardPage() {
       setLoading(false)
     }
     void loadAccount()
-  }, [])
+  }, [supabase])
 
   const saveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
     setMessage('')
     setError('')
+    if (!supabase) { setError('Account services are still loading.'); setSaving(false); return }
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setError('Your session has expired. Please sign in again.'); setSaving(false); return }
     const { error: updateError } = await supabase.from('profiles').upsert({ id: user.id, ...profile, updated_at: new Date().toISOString() })
@@ -61,7 +66,7 @@ export default function DashboardPage() {
   if (loading) return <main className="min-h-screen bg-[#030914] p-8 text-white"><div className="mx-auto max-w-6xl animate-pulse text-slate-400">Loading your secure account...</div></main>
 
   return <main className="min-h-screen bg-[#030914] text-white">
-    <header className="border-b border-white/10 bg-[#071426] px-5 py-5 lg:px-10"><div className="mx-auto flex max-w-6xl items-center justify-between"><a href="/" className="tracking-[.22em] text-[#64f6a5]">SHARKYPAY</a><div className="flex items-center gap-4"><span className="hidden text-sm text-slate-400 sm:block">{email}</span><button onClick={async () => { await supabase.auth.signOut(); window.location.assign('/') }} className="rounded-full border border-white/15 px-4 py-2 text-sm">Sign out</button></div></div></header>
+    <header className="border-b border-white/10 bg-[#071426] px-5 py-5 lg:px-10"><div className="mx-auto flex max-w-6xl items-center justify-between"><a href="/" className="tracking-[.22em] text-[#64f6a5]">SHARKYPAY</a><div className="flex items-center gap-4"><span className="hidden text-sm text-slate-400 sm:block">{email}</span><button onClick={async () => { await supabase?.auth.signOut(); window.location.assign('/') }} className="rounded-full border border-white/15 px-4 py-2 text-sm">Sign out</button></div></div></header>
     <div className="mx-auto grid max-w-6xl gap-8 px-5 py-10 lg:grid-cols-[220px_1fr] lg:px-10">
       <aside className="h-fit rounded-3xl border border-white/10 bg-white/[.035] p-4"><p className="mb-4 px-3 text-xs uppercase tracking-[.2em] text-slate-500">Investor account</p><nav className="flex gap-2 overflow-auto lg:flex-col"><a className="rounded-xl bg-[#64f6a5]/10 px-3 py-3 text-sm text-[#64f6a5]" href="#overview">Overview</a><a className="rounded-xl px-3 py-3 text-sm text-slate-300 hover:bg-white/5" href="#investments">Investments</a><a className="rounded-xl px-3 py-3 text-sm text-slate-300 hover:bg-white/5" href="#transactions">Transactions</a><a className="rounded-xl px-3 py-3 text-sm text-slate-300 hover:bg-white/5" href="#profile">Profile</a></nav></aside>
       <section className="flex flex-col gap-8">
